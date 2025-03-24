@@ -181,7 +181,7 @@ const User = {
   _timeout: 50,
   _isTokenLogin: false,
   _isCallingLogin: false,
-  _loginWithToken(value) {
+  _loginWithToken(value, callback) {
     if (!value) {
       Meteor.isVerbose &&
         console.info(
@@ -218,6 +218,7 @@ const User = {
           User.logout();
         } else {
           User._handleLoginCallback(err, result);
+          typeof callback === 'function' && callback(err);
         }
       });
     } else {
