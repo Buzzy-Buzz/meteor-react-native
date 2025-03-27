@@ -20,6 +20,7 @@ import ReactiveDict from './ReactiveDict';
  */
 const Meteor = {
   isVerbose: false,
+  meteorStore: null,
 
   /**
    * Calling this enables extended internal logging to console
@@ -104,7 +105,7 @@ const Meteor = {
    *   check using a 204 request
    */
   connect(endpoint, options) {
-    meteorStore = options?.store || meteorStore;
+    this.meteorStore = options?.store || this.meteorStore;
     if (!endpoint) endpoint = Data._endpoint;
     if (!options) options = Data._options;
 
@@ -205,7 +206,7 @@ const Meteor = {
         ...message.fields,
       };
 
-      Data.db[message.collection].upsert(document, meteorStore);
+      Data.db[message.collection].upsert(document, this.meteorStore);
       let observers = getObservers('added', message.collection, document);
       observers.forEach(callback => {
         try {
@@ -226,9 +227,12 @@ const Meteor = {
         const subId = idsMap.get(message.subs[i]);
         if (subId) {
           const sub = Data.subscriptions[subId];
-          sub.ready = true;
-          sub.readyDeps.changed();
-          sub.readyCallback && sub.readyCallback();
+          if (sub) {
+            sub.ready = true;
+            typeof sub?.readyDeps?.changed === 'function' &&
+              sub.readyDeps.changed();
+            sub.readyCallback && sub.readyCallback();
+          }
         }
       }
     });
@@ -256,7 +260,7 @@ const Meteor = {
           _id: messageID,
         });
 
-        Data.db[message.collection].upsert(document, meteorStore);
+        Data.db[message.collection].upsert(document, this.meteorStore);
         let observers = getObservers('changed', message.collection, document);
         observers.forEach(callback => {
           try {
@@ -282,7 +286,7 @@ const Meteor = {
           message.collection,
           oldDocument,
         );
-        Data.db[message.collection].del(messageID, meteorStore);
+        Data.db[message.collection].del(messageID, this.meteorStore);
         observers.forEach(callback => {
           try {
             callback(null, oldDocument);
@@ -451,8 +455,13 @@ const Meteor = {
         if (!Data.subscriptions[id]) return false;
 
         let record = Data.subscriptions[id];
-        record.readyDeps.depend();
-        return record.ready;
+        if (typeof record?.readyDeps?.depend === 'function') {
+          record.readyDeps.depend();
+          return record.ready;
+        } else {
+          Data.subscriptions[id].readyDeps = new Tracker.Dependency();
+          return record.ready;
+        }
       },
       subscriptionId: id,
     };
