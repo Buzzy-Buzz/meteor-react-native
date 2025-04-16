@@ -182,7 +182,8 @@ const Meteor = {
       for (var i in Data.subscriptions) {
         const sub = Data.subscriptions[i];
         sub.ready = false;
-        sub.readyDeps.changed();
+        typeof sub?.readyDeps?.changed === 'function' &&
+          sub.readyDeps.changed();
       }
 
       if (!Data.ddp.autoReconnect) return;
